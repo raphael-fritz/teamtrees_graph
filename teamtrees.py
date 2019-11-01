@@ -27,16 +27,17 @@ def retrieve_data(dataflag, q):
 
     try:
         while (True):
-            #getting website
+            # getting website
             response = requests.get(url)
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            #extracting data
+            # extracting data
             data = str(soup.find("div", {"id": "totalTrees"}))
             data = strip_string(data)
 
-            #saving data to file with timestamp
-            output = str(i) + "    " + str(datetime.now()) + "    " + data + "\n"
+            # saving data to file with timestamp
+            output = str(i) + "    " + str(datetime.now()) + \
+                "    " + data + "\n"
             dataflag.acquire()
             print(output)
             dataflag.release()
@@ -44,7 +45,7 @@ def retrieve_data(dataflag, q):
             save_file.write(output)
             i += 1
 
-            if(q.get()==False):
+            if(q.get() == False):
                 print("thread stopping")
 
             time.sleep(2)
@@ -57,18 +58,18 @@ if __name__ == '__main__':
     # initializing multiprocessing Lock and Queue
     dataflag = Lock()
     q = Queue()
-    
-    #starting thread
-    p = Process(target=retrieve_data, args=(dataflag,q,))
+
+    # starting thread
+    p = Process(target=retrieve_data, args=(dataflag, q,))
     p.start()
 
     dataflag.acquire()
     print("press \'e\' to exit\n")
     dataflag.release()
 
-    #collect data until interrupted
+    # collect data until interrupted
     while(True):
-        exit_char = input()    
+        exit_char = input()
 
         if(exit_char.lower() == 'e'):
             q.put(False)
@@ -78,4 +79,11 @@ if __name__ == '__main__':
 
             p.join()
             break
-        time.sleep(1)
+
+
+"""
+to do:
+    graph
+    fix queue
+    don't overwrite older data when new gets added
+"""
