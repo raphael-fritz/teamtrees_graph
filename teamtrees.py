@@ -1,12 +1,22 @@
-""" Extract donated tree amount from teamtrees.org and make a graph that shows the progress """
+"""
+Title: teamtrees
+Description: Extract donated tree amount from teamtrees.org and make a graph that shows the progress
+
+TODO:
+    - graph
+    - fix queue
+    - don't overwrite older data when new gets added
+"""
 
 import requests
 import time
+import sys
+import os
 from multiprocessing import Process, Lock, Queue
 from datetime import datetime
 from bs4 import BeautifulSoup
 
-# removing unnecessary information
+# remove unnecessary information
 def strip_string(data):
 
     ending = "\" id=\"totalTrees\">0</div>"
@@ -19,71 +29,54 @@ def strip_string(data):
 
     return data
 
-# retrieving data from website
-def retrieve_data(dataflag, q):
+# retrieve data from website
+def retrieve_data(dataflag, queue):
     url = 'https://teamtrees.org'
-    save_file = open("teamtrees.txt", 'w')
+    data_file = open("teamtrees.txt", 'w')
     i = 0
 
     try:
         while (True):
-            # getting website
+            # get web response
             response = requests.get(url)
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # extracting data
+            # extract data
             data = str(soup.find("div", {"id": "totalTrees"}))
             data = strip_string(data)
 
-            # saving data to file with timestamp and saveid (i)
-            output = str(i) + "    " + str(datetime.now()) + \
-                "    " + data + "\n"
+            # write data to file with id and timestamp
+            output = "{}\t{}\t{}\n".format(i, datetime.now(), data)
             dataflag.acquire()
             print(output)
             dataflag.release()
 
-            save_file.write(output)
+            data_file.write(output)
             i += 1
 
-            if(q.get() == False):
+            if(queue.get() == False):
                 print("thread stopping...")
                 break
 
             time.sleep(5)
     finally:
-        save_file.close()
+        data_file.close()
 
 
 if __name__ == '__main__':
+    try:
+        # init multiprocessing lock and queue
+        dataflag = Lock()
+        queue = Queue()
 
-    # initializing multiprocessing Lock and Queue
-    dataflag = Lock()
-    q = Queue()
+        # start thread
+        process = Process(target = retrieve_data, args = (dataflag, queue))
+        process.start()
 
-    # starting thread
-    p = Process(target=retrieve_data, args=(dataflag, q,))
-    p.start()
-
-    dataflag.acquire()
-    print("press \'e\' to exit\n")
-    dataflag.release()
-
-    # collect data until interrupted
-    while(True):
-        exit_char = input()
-
-        if(exit_char.lower() == 'e'):
-            q.put(False)    #set exit flag
-            p.join()        #wait for thread to exit
-            dataflag.acquire()
-            print("stopping...")
-            dataflag.release()
-            break
-
-
-"""
-to do:
-    graph
-    fix queue
-    don't overwrite older data when new gets added
-"""
+    except KeyboardInterrupt:
+        print("Stopping...")
+        queue.put(False)    # set exit flag
+        process.join()      # wait for thread to exit
+        dataflag.acquire()
+        print("stopping...")
+        dataflag.release()
