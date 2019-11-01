@@ -35,7 +35,7 @@ def retrieve_data(dataflag, q):
             data = str(soup.find("div", {"id": "totalTrees"}))
             data = strip_string(data)
 
-            # saving data to file with timestamp
+            # saving data to file with timestamp and saveid (i)
             output = str(i) + "    " + str(datetime.now()) + \
                 "    " + data + "\n"
             dataflag.acquire()
@@ -46,9 +46,10 @@ def retrieve_data(dataflag, q):
             i += 1
 
             if(q.get() == False):
-                print("thread stopping")
+                print("thread stopping...")
+                break
 
-            time.sleep(2)
+            time.sleep(5)
     finally:
         save_file.close()
 
@@ -72,12 +73,11 @@ if __name__ == '__main__':
         exit_char = input()
 
         if(exit_char.lower() == 'e'):
-            q.put(False)
+            q.put(False)    #set exit flag
+            p.join()        #wait for thread to exit
             dataflag.acquire()
             print("stopping...")
             dataflag.release()
-
-            p.join()
             break
 
 
