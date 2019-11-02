@@ -6,7 +6,7 @@ TODO:
     - [x] fix queue
     - [x] don't overwrite older data when new gets added
         - [ ] read `i` from file if necessery
-    - [ ] correctly stop threads on `KeyboardInterrupt`
+    - [ ] correctly stop threads on `KeyboardInterrupt` ???
     - [ ] graph
 """
 
@@ -58,7 +58,7 @@ def retrieve_data(data_flag, queue):
             data_flag.release()
 
             # check if exit flag is set
-            if(not queue.empty() and queue.get()):
+            if(not queue.empty() and not queue.get()):
                 print("thread stopping...")
                 break
 
@@ -68,20 +68,26 @@ def retrieve_data(data_flag, queue):
 
 
 if __name__ == '__main__':
-    try:
-        # init multiprocessing lock and queue
-        data_flag = Lock()
-        queue = Queue()
+    # init multiprocessing lock and queue
+    data_flag = Lock()
+    queue = Queue()
 
-        # start thread
-        process = Process(target = retrieve_data, args = (data_flag, queue))
-        process.start()
+    # start thread
+    process = Process(target = retrieve_data, args = (data_flag, queue))
+    process.start()
 
-    except KeyboardInterrupt:
-        print("Stopping...")
-        queue.put(False)    # set exit flag
-        process.terminate()
-        process.join()      # wait for thread to exit
-        data_flag.acquire()
-        print("stopping...")
-        data_flag.release()
+    data_flag.acquire()
+    print("press \'q\' to quit\n")
+    data_flag.release()
+
+    while(True):
+        exit_char = input()
+
+        if(exit_char.lower() == 'q'):
+            print("Stopping...")
+            queue.put(False)    # set exit flag
+            process.join()      # wait for thread to exit
+            data_flag.acquire()
+            print("stopping...")
+            data_flag.release()
+            break
