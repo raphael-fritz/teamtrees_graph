@@ -5,7 +5,7 @@ Description: Extract donated tree amount from teamtrees.org and make a graph tha
 TODO:
     - [x] fix queue
     - [x] don't overwrite older data when new gets added
-        - [ ] read `i` from file if necessary
+        - [x] read `data_id` from file if necessary
     - [x] correctly stop threads on `KeyboardInterrupt`
     - [ ] graph
 """
@@ -29,11 +29,20 @@ def strip_string(data):
 
     return data
 
+def get_next_id():
+    try:
+        data_file = open("teamtrees.txt", 'r')
+        lines = data_file.readlines()
+        data_file.close()
+        return int(lines[len(lines)-1].split("\t")[0]) + 1
+    except(IndexError):
+        return 0
+
 # retrieve data from website
 def retrieve_data(io_lock, queue):
     url = 'https://teamtrees.org'
+    data_id = get_next_id()
     data_file = open("teamtrees.txt", 'a')  # open file in append mode
-    i = 0
 
     try:
         while (True):
@@ -46,14 +55,14 @@ def retrieve_data(io_lock, queue):
             data = strip_string(data)
 
             # generate data entry with id and timestamp
-            output = "{}\t{}\t{}\n".format(i, datetime.now(), data)
+            output = "{}\t{}\t{}\n".format(data_id, datetime.now(), data)
             io_lock.acquire()
             print(output, end="")
             io_lock.release()
 
             # write data to file
             data_file.write(output)
-            i += 1
+            data_id += 1
 
             # check if exit flag is set
             if(not queue.empty() and not queue.get()):
