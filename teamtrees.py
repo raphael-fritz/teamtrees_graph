@@ -5,15 +5,13 @@ Description: Extract donated tree amount from teamtrees.org and make a graph tha
 TODO:
     - [x] fix queue
     - [x] don't overwrite older data when new gets added
-        - [ ] read `i` from file if necessery
-    - [ ] correctly stop threads on `KeyboardInterrupt` ???
+        - [ ] read `i` from file if necessary
+    - [x] correctly stop threads on `KeyboardInterrupt`
     - [ ] graph
 """
 
 import requests
 import time
-import sys
-import os
 from multiprocessing import Process, Lock, Queue
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -32,7 +30,7 @@ def strip_string(data):
     return data
 
 # retrieve data from website
-def retrieve_data(data_flag, queue):
+def retrieve_data(io_lock, queue):
     url = 'https://teamtrees.org'
     data_file = open("teamtrees.txt", 'a')  # open file in append mode
     i = 0
@@ -49,45 +47,64 @@ def retrieve_data(data_flag, queue):
 
             # generate data entry with id and timestamp
             output = "{}\t{}\t{}\n".format(i, datetime.now(), data)
-            print(output, end = "")
-            
+            io_lock.acquire()
+            print(output, end="")
+            io_lock.release()
+
             # write data to file
-            data_flag.acquire()
             data_file.write(output)
             i += 1
-            data_flag.release()
 
             # check if exit flag is set
             if(not queue.empty() and not queue.get()):
+                io_lock.acquire()
                 print("thread stopping...")
+                io_lock.release()
                 break
 
-            time.sleep(5)
+            time.sleep(10)
+
+    except(KeyboardInterrupt):
+        data_file.close()
+        io_lock.acquire()
+        print("thread stopping...")
+        io_lock.release()
+
     finally:
         data_file.close()
 
 
 if __name__ == '__main__':
-    # init multiprocessing lock and queue
-    data_flag = Lock()
-    queue = Queue()
+    try:
+        # init multiprocessing lock and queue
+        io_lock = Lock()
+        queue = Queue()
 
-    # start thread
-    process = Process(target = retrieve_data, args = (data_flag, queue))
-    process.start()
+        # start thread
+        process = Process(target=retrieve_data, args=(io_lock, queue))
+        process.start()
 
-    data_flag.acquire()
-    print("press \'q\' to quit\n")
-    data_flag.release()
+        io_lock.acquire()
+        print("press \'q\' to quit\n")
+        io_lock.release()
 
-    while(True):
-        exit_char = input()
+        while(True):
+            exit_char = input()
 
-        if(exit_char.lower() == 'q'):
-            print("Stopping...")
-            queue.put(False)    # set exit flag
-            process.join()      # wait for thread to exit
-            data_flag.acquire()
-            print("stopping...")
-            data_flag.release()
-            break
+            if(exit_char.lower() == 'q'):
+                io_lock.acquire()
+                print("stopping...")
+                io_lock.release()
+
+                queue.put(False)    # set exit flag
+                process.join()      # wait for thread to exit
+                break
+
+    except(KeyboardInterrupt):
+        io_lock.acquire()
+        print("stopping...")
+        io_lock.release()
+        queue.put(False)            # set exit flag
+        process.join(timeout=2)     # wait for thread to exit
+        if process.is_alive():
+            process.terminate()
