@@ -3,9 +3,11 @@ Title: teamtrees
 Description: Extract donated tree amount from teamtrees.org and make a graph that shows the progress
 
 TODO:
-    - graph
-    - fix queue
-    - don't overwrite older data when new gets added
+    - [x] fix queue
+    - [x] don't overwrite older data when new gets added
+        - [ ] read `i` from file if necessery
+    - [ ] correctly stop threads on `KeyboardInterrupt`
+    - [ ] graph
 """
 
 import requests
@@ -30,9 +32,9 @@ def strip_string(data):
     return data
 
 # retrieve data from website
-def retrieve_data(dataflag, queue):
+def retrieve_data(data_flag, queue):
     url = 'https://teamtrees.org'
-    data_file = open("teamtrees.txt", 'w')
+    data_file = open("teamtrees.txt", 'a')  # open file in append mode
     i = 0
 
     try:
@@ -45,16 +47,18 @@ def retrieve_data(dataflag, queue):
             data = str(soup.find("div", {"id": "totalTrees"}))
             data = strip_string(data)
 
-            # write data to file with id and timestamp
+            # generate data entry with id and timestamp
             output = "{}\t{}\t{}\n".format(i, datetime.now(), data)
-            dataflag.acquire()
-            print(output)
-            dataflag.release()
-
+            print(output, end = "")
+            
+            # write data to file
+            data_flag.acquire()
             data_file.write(output)
             i += 1
+            data_flag.release()
 
-            if(queue.get() == False):
+            # check if exit flag is set
+            if(not queue.empty() and queue.get()):
                 print("thread stopping...")
                 break
 
@@ -66,17 +70,18 @@ def retrieve_data(dataflag, queue):
 if __name__ == '__main__':
     try:
         # init multiprocessing lock and queue
-        dataflag = Lock()
+        data_flag = Lock()
         queue = Queue()
 
         # start thread
-        process = Process(target = retrieve_data, args = (dataflag, queue))
+        process = Process(target = retrieve_data, args = (data_flag, queue))
         process.start()
 
     except KeyboardInterrupt:
         print("Stopping...")
         queue.put(False)    # set exit flag
+        process.terminate()
         process.join()      # wait for thread to exit
-        dataflag.acquire()
+        data_flag.acquire()
         print("stopping...")
-        dataflag.release()
+        data_flag.release()
