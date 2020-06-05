@@ -1,5 +1,6 @@
-# teamtrees_graph
-Extract donated tree amount from teamtrees.org and make a graph that shows the progress 
+# Team Trees Graph 
+
+Extract donated tree amount from teamtrees.org and make a graph that shows the progress
 
 ## Build & Run
 
@@ -7,3 +8,4 @@ Extract donated tree amount from teamtrees.org and make a graph that shows the p
 pip install -r requirements.txt
 python teamtrees.py
 ```
+
